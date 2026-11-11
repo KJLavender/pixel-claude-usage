@@ -1,0 +1,50 @@
+name: Android widget
+
+on:
+  push:
+    branches: [main]
+    paths: ["widgets/android/**", ".github/workflows/android-widget.yml"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: widgets/android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk ClaudeUsageWidget.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ClaudeUsageWidget
+          path: widgets/android/ClaudeUsageWidget.apk
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" ClaudeUsageWidget.apk \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Android home screen widget. Download ClaudeUsageWidget.apk on your phone and install it. See the README for setup." \
+            || gh release upload "$GITHUB_REF_NAME" ClaudeUsageWidget.apk --clobber
