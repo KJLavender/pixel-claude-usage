@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14121f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Claude Usage">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Claude Usage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14121f; --panel: #1f1b30; --edge: #3a3358; --ink: #f2ead8; --dim: #8d86a8;
+    --ok: #7bd88f; --warn: #ffcb57; --bad: #ff6b6b; --accent: #d97757; --empty: #2b2643;
+    --px: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  html, body { background: var(--bg); color: var(--ink); min-height: 100%; }
+  body {
+    font-family: "DotGothic16", "Press Start 2P", monospace;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+    -webkit-font-smoothing: none; image-rendering: pixelated;
+    -webkit-tap-highlight-color: transparent; user-select: none;
+  }
+  .pixel { font-family: "Press Start 2P", monospace; }
+  .wrap { max-width: 420px; margin: 0 auto; display: grid; gap: 14px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .title { display: flex; align-items: center; gap: 10px; font-size: 12px; letter-spacing: 1px; }
+  .title svg { width: 28px; height: 28px; }
+  .plan { font-size: 9px; color: var(--bg); background: var(--accent); padding: 5px 6px; }
+
+  .card {
+    background: var(--panel); padding: 14px;
+    box-shadow:
+      0 calc(-1 * var(--px)) 0 0 var(--edge), 0 var(--px) 0 0 var(--edge),
+      calc(-1 * var(--px)) 0 0 0 var(--edge), var(--px) 0 0 0 var(--edge);
+    margin: var(--px);
+  }
+  .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .label { font-size: 10px; color: var(--dim); letter-spacing: 1px; }
+  .pct { font-size: 28px; line-height: 1; }
+  .pct small { font-size: 12px; margin-left: 2px; }
+  .bar { display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px; margin: 12px 0 10px; }
+  .bar i { height: 16px; background: var(--empty); }
+  .reset { font-size: 13px; color: var(--dim); }
+  .reset b { color: var(--ink); font-weight: normal; }
+
+  .sub { display: grid; gap: 10px; }
+  .mini .row { margin-bottom: 6px; }
+  .mini .pct { font-size: 14px; }
+  .mini .bar { margin: 0 0 4px; gap: 2px; }
+  .mini .bar i { height: 8px; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .stat .v { font-size: 13px; margin-top: 6px; }
+  .split { display: flex; height: 10px; margin-top: 8px; gap: 2px; }
+  .split span { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: var(--dim); }
+  .legend i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; }
+
+  footer { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--dim); }
+  button {
+    font: inherit; font-family: "Press Start 2P", monospace; font-size: 9px; color: var(--bg);
+    background: var(--ink); border: 0; padding: 8px 10px; cursor: pointer;
+    box-shadow: 0 3px 0 0 var(--dim);
+  }
+  button:active { transform: translateY(3px); box-shadow: none; }
+  .err { font-size: 13px; color: var(--warn); line-height: 1.5; display: none; }
+  .err.show { display: block; }
+  .blink { animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title pixel">
+      <svg viewBox="0 0 8 8" shape-rendering="crispEdges" aria-hidden="true">
+        <rect width="8" height="8" fill="#14121f"/>
+        <path fill="#d97757" d="M3 0h2v3H3zM3 5h2v3H3zM0 3h3v2H0zM5 3h3v2H5zM1 1h1v1H1zM6 1h1v1H6zM1 6h1v1H1zM6 6h1v1H6z"/>
+      </svg>
+      CLAUDE<br>USAGE
+    </div>
+    <div class="plan pixel" id="plan">----</div>
+  </header>
+
+  <div class="err" id="err"></div>
+
+  <section class="card" id="session">
+    <div class="row"><span class="label pixel">5H SESSION</span><span class="pct pixel" id="s-pct">--<small>%</small></span></div>
+    <div class="bar" id="s-bar"></div>
+    <div class="reset">重置倒數 <b id="s-reset">--</b></div>
+  </section>
+
+  <section class="card" id="weekly">
+    <div class="row"><span class="label pixel">WEEKLY</span><span class="pct pixel" id="w-pct">--<small>%</small></span></div>
+    <div class="bar" id="w-bar"></div>
+    <div class="reset">重置倒數 <b id="w-reset">--</b></div>
+  </section>
+
+  <section class="card sub" id="extra" hidden></section>
+
+  <section class="card" id="today" hidden>
+    <div class="label pixel" style="margin-bottom:12px">TODAY · 本機</div>
+    <div class="stats">
+      <div class="stat"><div class="label">輸出 tokens</div><div class="v pixel" id="t-out">-</div></div>
+      <div class="stat"><div class="label">輸入 tokens</div><div class="v pixel" id="t-in">-</div></div>
+      <div class="stat"><div class="label">快取讀取</div><div class="v pixel" id="t-cache">-</div></div>
+      <div class="stat"><div class="label">回應次數</div><div class="v pixel" id="t-msg">-</div></div>
+    </div>
+  </section>
+
+  <section class="card" id="mix" hidden>
+    <div class="label pixel">7D MIX · 用在哪</div>
+    <div class="split" id="mix-bar"></div>
+    <div class="legend" id="mix-legend"></div>
+  </section>
+
+  <footer>
+    <span id="updated">連線中<span class="blink">_</span></span>
+    <button id="refresh">REFRESH</button>
+  </footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const MIX_COLORS = ["#d97757", "#7bd88f", "#6cb6ff", "#c792ea", "#ffcb57"];
+let last = null;
+// Remember the key so the API call works even where the cookie is not shared (home-screen app).
+const KEY = (() => {
+  const k = new URLSearchParams(location.search).get("k");
+  try { if (k) localStorage.setItem("k", k); return k || localStorage.getItem("k") || ""; } catch { return k || ""; }
+})();
+
+function color(p) { return p >= 80 ? "var(--bad)" : p >= 50 ? "var(--warn)" : "var(--ok)"; }
+
+function drawBar(el, pct, n = 20) {
+  const filled = Math.round((Math.min(100, pct) / 100) * n);
+  el.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+  el.innerHTML = Array.from({ length: n }, (_, i) =>
+    `<i style="${i < filled ? `background:${color(pct)}` : ""}"></i>`).join("");
+}
+
+function countdown(iso) {
+  if (!iso) return "--";
+  let s = Math.max(0, (Date.parse(iso) - Date.now()) / 1000);
+  const d = Math.floor(s / 86400); s -= d * 86400;
+  const h = Math.floor(s / 3600); s -= h * 3600;
+  const m = Math.floor(s / 60);
+  return d ? `${d}天 ${h}時` : h ? `${h}時 ${m}分` : `${m}分`;
+}
+
+function fmt(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+  return String(n);
+}
+
+function setWindow(prefix, w) {
+  if (!w) return;
+  $(prefix + "-pct").innerHTML = `${w.percent}<small>%</small>`;
+  $(prefix + "-pct").style.color = color(w.percent);
+  drawBar($(prefix + "-bar"), w.percent);
+  $(prefix + "-reset").textContent = countdown(w.resetsAt);
+}
+
+function render(d) {
+  if (!d) return;
+  $("plan").textContent = (d.plan || "----").toUpperCase();
+  setWindow("s", d.fiveHour);
+  setWindow("w", d.sevenDay);
+
+  // per-model weekly limits (e.g. Opus / Sonnet caps) — only show ones that exist
+  const extras = (d.limits || []).filter((l) => l.kind !== "session" && l.kind !== "weekly_all");
+  $("extra").hidden = !extras.length;
+  $("extra").innerHTML = extras.map((l) => `
+    <div class="mini">
+      <div class="row"><span class="label pixel">${l.label}</span><span class="pct pixel" style="color:${color(l.percent)}">${l.percent}%</span></div>
+      <div class="bar">${Array.from({ length: 20 }, (_, i) => `<i style="${i < Math.round(l.percent / 5) ? `background:${color(l.percent)}` : ""}"></i>`).join("")}</div>
+      <div class="reset">重置倒數 <b>${countdown(l.resetsAt)}</b></div>
+    </div>`).join("");
+
+  const t = d.local?.today;
+  $("today").hidden = !t;
+  if (t) {
+    $("t-out").textContent = fmt(t.output);
+    $("t-in").textContent = fmt(t.input + t.cacheWrite);
+    $("t-cache").textContent = fmt(t.cacheRead);
+    $("t-msg").textContent = fmt(t.messages);
+  }
+
+  const rows = (d.breakdown || []).filter((r) => r.percent > 0);
+  $("mix").hidden = !rows.length;
+  $("mix-bar").innerHTML = rows.map((r, i) => `<span style="flex:${r.percent};background:${MIX_COLORS[i % MIX_COLORS.length]}"></span>`).join("");
+  $("mix-legend").innerHTML = rows.map((r, i) => `<span><i style="background:${MIX_COLORS[i % MIX_COLORS.length]}"></i>${r.name} ${r.percent}%</span>`).join("");
+}
+
+function showUpdated() {
+  if (!last?.fetchedAt) return;
+  const mins = Math.round((Date.now() - last.fetchedAt) / 60000);
+  $("updated").textContent = mins < 1 ? "剛剛更新" : `${mins} 分鐘前更新`;
+}
+
+async function load(force = false) {
+  try {
+    const r = await fetch(`api/usage?k=${encodeURIComponent(KEY)}${force ? "&force=1" : ""}`, { cache: "no-store" });
+    if (r.status === 401) throw new Error("金鑰錯誤，請重新掃描電腦上的 QR code");
+    const d = await r.json();
+    if (d.fiveHour || d.sevenDay) { last = d; try { localStorage.setItem("last", JSON.stringify(d)); } catch {} }
+    $("err").textContent = d.error || "";
+    $("err").classList.toggle("show", !!d.error);
+    render(d.fiveHour || d.sevenDay ? d : last);
+  } catch (e) {
+    $("err").textContent = "連不到電腦：" + e.message + "（顯示上次的資料）";
+    $("err").classList.add("show");
+    render(last);
+  }
+  showUpdated();
+}
+
+try { last = JSON.parse(localStorage.getItem("last")); render(last); } catch {}
+$("refresh").onclick = () => load(true);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+setInterval(load, 60_000);
+setInterval(() => { render(last); showUpdated(); }, 30_000);
+load();
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
