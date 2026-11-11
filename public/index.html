@@ -97,13 +97,13 @@
   <section class="card" id="session">
     <div class="row"><span class="label pixel">5H SESSION</span><span class="pct pixel" id="s-pct">--<small>%</small></span></div>
     <div class="bar" id="s-bar"></div>
-    <div class="reset">重置倒數 <b id="s-reset">--</b></div>
+    <div class="row reset"><span>重置倒數 <b id="s-reset">--</b></span><span id="s-left"></span></div>
   </section>
 
   <section class="card" id="weekly">
     <div class="row"><span class="label pixel">WEEKLY</span><span class="pct pixel" id="w-pct">--<small>%</small></span></div>
     <div class="bar" id="w-bar"></div>
-    <div class="reset">重置倒數 <b id="w-reset">--</b></div>
+    <div class="row reset"><span>重置倒數 <b id="w-reset">--</b></span><span id="w-left"></span></div>
   </section>
 
   <section class="card sub" id="extra" hidden></section>
@@ -165,12 +165,19 @@ function fmt(n) {
   return String(n);
 }
 
+// Once the reset time has passed the window is back to 0%, even if we haven't refetched yet.
+function isReset(w) { return w?.resetsAt && Date.parse(w.resetsAt) <= Date.now(); }
+function livePct(w) { return isReset(w) ? 0 : w.percent; }
+function resetText(w) { return isReset(w) ? "已重置，額度全滿" : countdown(w.resetsAt); }
+
 function setWindow(prefix, w) {
   if (!w) return;
-  $(prefix + "-pct").innerHTML = `${w.percent}<small>%</small>`;
-  $(prefix + "-pct").style.color = color(w.percent);
-  drawBar($(prefix + "-bar"), w.percent);
-  $(prefix + "-reset").textContent = countdown(w.resetsAt);
+  const p = livePct(w);
+  $(prefix + "-pct").innerHTML = `${p}<small>%</small>`;
+  $(prefix + "-pct").style.color = color(p);
+  drawBar($(prefix + "-bar"), p);
+  $(prefix + "-reset").textContent = resetText(w);
+  $(prefix + "-left").textContent = `剩 ${100 - p}%`;
 }
 
 function render(d) {
@@ -182,11 +189,11 @@ function render(d) {
   // per-model weekly limits (e.g. Opus / Sonnet caps) — only show ones that exist
   const extras = (d.limits || []).filter((l) => l.kind !== "session" && l.kind !== "weekly_all");
   $("extra").hidden = !extras.length;
-  $("extra").innerHTML = extras.map((l) => `
+  $("extra").innerHTML = extras.map((l) => ({ ...l, percent: livePct(l) })).map((l, i) => `
     <div class="mini">
       <div class="row"><span class="label pixel">${l.label}</span><span class="pct pixel" style="color:${color(l.percent)}">${l.percent}%</span></div>
       <div class="bar">${Array.from({ length: 20 }, (_, i) => `<i style="${i < Math.round(l.percent / 5) ? `background:${color(l.percent)}` : ""}"></i>`).join("")}</div>
-      <div class="reset">重置倒數 <b>${countdown(l.resetsAt)}</b></div>
+      <div class="reset">重置倒數 <b>${resetText(extras[i])}</b></div>
     </div>`).join("");
 
   const t = d.local?.today;
@@ -231,7 +238,11 @@ try { last = JSON.parse(localStorage.getItem("last")); render(last); } catch {}
 $("refresh").onclick = () => load(true);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
 setInterval(load, 60_000);
-setInterval(() => { render(last); showUpdated(); }, 30_000);
+setInterval(() => {
+  const due = last && [last.fiveHour, last.sevenDay].some((w) => w && isReset(w) && Date.parse(w.resetsAt) > (last.fetchedAt || 0));
+  render(last); showUpdated();
+  if (due) load(); // server still caps real API calls at one per minute
+}, 15_000);
 load();
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

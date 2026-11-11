@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -12,6 +13,8 @@ const PUBLIC = path.join(ROOT, "public");
 const CONFIG_FILE = path.join(ROOT, "config.json");
 const USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 const MIN_FETCH_INTERVAL_MS = 60_000; // never hit the API more than once a minute
+const REFRESH_COOLDOWN_MS = 20 * 60_000; // at most one token refresh attempt per 20 minutes
+const REFRESH_EARLY_MS = 5 * 60_000; // refresh a little before the token actually expires
 
 // ---------- config ----------
 function loadConfig() {
@@ -49,10 +52,52 @@ function readToken() {
     try {
       const o = JSON.parse(fs.readFileSync(file, "utf8")).claudeAiOauth;
       if (!o?.accessToken) continue;
-      if (!best || (o.expiresAt || 0) > (best.expiresAt || 0)) best = { ...o, file };
+      // a login without a refresh token is dead once it expires; prefer ones that can renew
+      const score = (t) => (t.refreshToken ? 1e15 : 0) + (t.expiresAt || 0);
+      if (!best || score(o) > score(best)) best = { ...o, file };
     } catch {}
   }
   return best;
+}
+
+// ---------- token refresh ----------
+// The access token only lives a few hours. Claude Code renews it whenever it runs, so when
+// it's about to expire we run Claude Code once with a one-word Haiku prompt. Claude Code
+// itself does the renewal and writes the new login back, so we never touch the refresh
+// token ourselves (doing that could race with Claude Code and log you out).
+// Costs a tiny bit of usage a few times a day. Turn off with "autoRefresh": false.
+let lastRefreshAttempt = 0;
+let tokenRejected = false; // set when the API says the token is no longer valid
+
+function refreshViaClaudeCode(tok) {
+  if (config.autoRefresh === false) return Promise.resolve(false);
+  if (Date.now() - lastRefreshAttempt < REFRESH_COOLDOWN_MS) return Promise.resolve(false);
+  lastRefreshAttempt = Date.now();
+  const dir = path.dirname(tok.file);
+  const env = { ...process.env };
+  for (const k of Object.keys(env)) if (k.startsWith("CLAUDECODE") || k.startsWith("CLAUDE_CODE_")) delete env[k];
+  // ~/.claude is Claude Code's default; pointing CLAUDE_CONFIG_DIR at it makes it look for
+  // .claude.json in the wrong place, so leave the variable unset in that case.
+  if (path.resolve(dir) === path.resolve(os.homedir(), ".claude")) delete env.CLAUDE_CONFIG_DIR;
+  else env.CLAUDE_CONFIG_DIR = dir;
+  const args = ["-p", "--model", "haiku", "--output-format", "json", "--tools", "",
+    "--setting-sources", "", "--no-session-persistence", "--system-prompt", "Reply with 1"];
+  console.log(`[${new Date().toLocaleString()}] token expiring, asking Claude Code to renew it (${dir})`);
+  return new Promise((resolve) => {
+    let out = "";
+    const child = spawn(config.claudePath || "claude", args, { env, cwd: os.tmpdir(), windowsHide: true });
+    const timer = setTimeout(() => child.kill(), 90_000);
+    child.stdout.on("data", (d) => (out += d));
+    child.on("error", (e) => { clearTimeout(timer); console.log("  ! could not run claude:", e.message); resolve(false); });
+    child.on("close", () => {
+      clearTimeout(timer);
+      let ok = false;
+      try { const j = JSON.parse(out); ok = !j.is_error; if (!ok) console.log("  !", j.result); } catch {}
+      if (ok) console.log("  token renewed");
+      resolve(ok);
+    });
+    child.stdin.end("1");
+  });
 }
 
 // ---------- remote usage ----------
@@ -60,13 +105,16 @@ let cache = { data: null, fetchedAt: 0, error: null };
 
 async function fetchUsage(force = false) {
   if (!force && Date.now() - cache.fetchedAt < MIN_FETCH_INTERVAL_MS) return cache;
-  const tok = readToken();
+  let tok = readToken();
+  if (tok && (tokenRejected || (tok.expiresAt && tok.expiresAt - REFRESH_EARLY_MS < Date.now()))) {
+    if (await refreshViaClaudeCode(tok)) { tok = readToken(); tokenRejected = false; }
+  }
   if (!tok) {
     cache = { ...cache, error: "找不到 Claude Code 登入資料 / No Claude Code login found", fetchedAt: Date.now() };
     return cache;
   }
-  if (tok.expiresAt && tok.expiresAt < Date.now()) {
-    cache = { ...cache, error: "登入憑證過期，開一下 Claude Code 就會更新 / Token expired — open Claude Code once to refresh it", fetchedAt: Date.now() };
+  if (tokenRejected || (tok.expiresAt && tok.expiresAt < Date.now())) {
+    cache = { ...cache, error: "登入憑證過期且自動更新失敗，請在電腦上開一次 Claude Code / Token expired and auto-renew failed — open Claude Code once", fetchedAt: Date.now() };
     return cache;
   }
   try {
@@ -74,6 +122,7 @@ async function fetchUsage(force = false) {
       headers: { Authorization: `Bearer ${tok.accessToken}`, "anthropic-beta": "oauth-2025-04-20" },
       signal: AbortSignal.timeout(10_000),
     });
+    if (r.status === 401) { tokenRejected = true; lastRefreshAttempt = 0; } // revoked early: renew next round
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const raw = await r.json();
     cache = { data: shapeUsage(raw, tok), fetchedAt: Date.now(), error: null };
@@ -229,4 +278,6 @@ server.listen(PORT, "0.0.0.0", () => {
   for (const ip of lanAddresses()) console.log(`  Phone:    http://${ip}:${PORT}/?k=${KEY}`);
   console.log(`  QR code:  http://localhost:${PORT}/pair`);
   fetchUsage(true).then((c) => console.log(c.error ? `  ! ${c.error}` : "  Usage API OK"));
+  // keep the token fresh and the numbers warm even when no phone is looking
+  setInterval(() => fetchUsage().catch(() => {}), 5 * 60_000);
 });

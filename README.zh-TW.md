@@ -8,7 +8,7 @@
 
 畫面上會顯示：
 
-- **5H SESSION**：目前這個 5 小時額度用了多少、什麼時候重置
+- **5H SESSION**：目前這個 5 小時額度用了多少、還剩多少、什麼時候重置。時間一到會直接顯示 0% 和「已重置」。
 - **WEEKLY**：本週額度用了多少、什麼時候重置
 - 個別模型的每週額度（如果你的方案有的話）
 - **TODAY**：今天用了多少 token，從這台電腦上 Claude Code 的本機紀錄算出來
@@ -48,9 +48,11 @@ powershell -ExecutionPolicy Bypass -File install-autostart.ps1
 
 ## 運作方式
 
-- 登入資料：Claude Code 會把登入資料存在設定資料夾裡的 `.credentials.json`（`~/.claude`，有設 `CLAUDE_CONFIG_DIR` 的話就是那個資料夾）。伺服器只讀這個檔案、挑最新的 token 來用，不會修改它。
+- 登入資料：Claude Code 會把登入資料存在設定資料夾裡的 `.credentials.json`（`~/.claude`，有設 `CLAUDE_CONFIG_DIR` 的話就是那個資料夾）。伺服器只讀這個檔案、挑最新的 token 來用，自己不會寫入它。
+- 保持登入有效：登入 token 幾個小時就會過期。快過期前幾分鐘，伺服器會用最便宜的 Haiku 模型叫 Claude Code 回一個字，Claude Code 會順便更新並存好自己的登入。所以就算你一整天沒開 Claude Code，面板也會繼續更新。最多 20 分鐘做一次，實際上一天大概幾次，只會用掉一點點額度。不想要的話，在 `config.json` 設 `"autoRefresh": false`。
+- 為什麼不讓伺服器自己更新 token：用來更新的那組憑證（refresh token）只能用一次。如果伺服器自己拿去用，Claude Code 存的那份就失效了，你得重新登入。交給 Claude Code 自己更新就不會有這個問題。
 - 用量資料來自 `https://api.anthropic.com/api/oauth/usage`，跟 Claude Code 的 `/usage` 指令是同一個來源。這不是官方公開文件裡的 API，之後可能會變。
-- 伺服器最多一分鐘問 Anthropic 一次。網頁開著時每分鐘更新一次，切回來的時候也會更新。
+- 伺服器在背景每 5 分鐘查一次用量，網頁要資料時最多一分鐘查一次。網頁開著時每分鐘更新一次，切回來的時候也會更新。
 - TODAY 的數字來自 Claude Code 寫在 `~/.claude/projects` 底下的對話紀錄，只算這台電腦上的 Claude Code，不包含 claude.ai 網頁聊天或其他裝置。
 
 ## 出門也要看
@@ -82,7 +84,7 @@ powershell -ExecutionPolicy Bypass -File install-autostart.ps1
 
 ## 限制和已知問題
 
-- Claude Code 的登入 token 幾個小時就會過期，你用 Claude Code 的時候它會自動更新。如果很久沒開 Claude Code，面板會顯示「登入憑證過期」，並保留上一次的數字，等你再開一次 Claude Code 就會恢復。
+- 如果自動更新失敗（例如電腦沒網路，或 Claude Code 本身的登入已經失效），面板會顯示提示，並保留上一次的數字。在電腦上開一次 Claude Code 就會恢復。
 - 網址裡的金鑰只是簡單擋一下同一個 Wi-Fi 的其他人。拿到連結的人看得到你的用量數字（只有數字，看不到登入資料）。
 - 這是加到主畫面的網頁 App，不是原生的桌面小工具，打開時才會更新。
 
@@ -95,5 +97,7 @@ powershell -ExecutionPolicy Bypass -File install-autostart.ps1
 | `port` | 伺服器 port，預設 8790 |
 | `key` | 網址裡的金鑰。刪掉後重啟就會產生新的 |
 | `extraConfigDirs` | 額外要找登入資料的 Claude Code 設定資料夾（選填） |
+| `autoRefresh` | 設成 `false` 就關掉自動更新登入（預設開啟） |
+| `claudePath` | `claude` 程式的完整路徑，PATH 裡找不到時才需要（選填） |
 
 環境變數 `PORT` 和 `USAGE_KEY` 可以覆蓋上面的設定。

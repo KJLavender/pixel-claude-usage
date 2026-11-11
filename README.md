@@ -8,7 +8,7 @@ It runs a tiny server on your computer. The server reads the login that Claude C
 
 What it shows:
 
-- **5H SESSION**: how much of the current 5-hour limit you've used, and when it resets
+- **5H SESSION**: how much of the current 5-hour limit you've used, how much is left, and when it resets. Once the reset time passes it shows 0% and "reset" right away.
 - **WEEKLY**: how much of the weekly limit you've used, and when it resets
 - Per-model weekly limits, if your plan has them
 - **TODAY**: tokens used today, counted from Claude Code's local logs on this computer
@@ -48,9 +48,11 @@ This puts a small script in your Windows Startup folder, so the server starts hi
 
 ## How it works
 
-- Login: Claude Code saves its login in `.credentials.json` inside its config folder (`~/.claude`, or `CLAUDE_CONFIG_DIR` if set). The server reads that file and uses the freshest token. It never changes the file.
+- Login: Claude Code saves its login in `.credentials.json` inside its config folder (`~/.claude`, or `CLAUDE_CONFIG_DIR` if set). The server reads that file and uses the freshest token. It never writes to the file itself.
+- Keeping the login fresh: the login token expires after a few hours. A few minutes before that, the server runs Claude Code once with a one-word prompt on Haiku (the cheapest model). Claude Code renews its own login as part of that and saves it, so the panel keeps working even if you haven't opened Claude Code all day. This happens at most every 20 minutes, in practice a few times a day, and uses a tiny bit of your usage. Set `"autoRefresh": false` in `config.json` to turn it off.
+- Why the server doesn't renew the token itself: the renewal code (refresh token) can only be used once. If the server used it, Claude Code's saved copy would stop working and you'd have to log in again. Letting Claude Code do it avoids that.
 - Usage data comes from `https://api.anthropic.com/api/oauth/usage`, the same source Claude Code's `/usage` uses. This is not a documented public API, so it may change.
-- The server asks Anthropic at most once a minute. The page refreshes every minute while open, and when you switch back to it.
+- The server checks usage every 5 minutes in the background, and at most once a minute when the page asks. The page refreshes every minute while open, and when you switch back to it.
 - The TODAY numbers come from the conversation logs Claude Code writes under `~/.claude/projects`. They only cover Claude Code on this computer, not claude.ai chats or other devices.
 
 ## Using it away from home
@@ -82,7 +84,7 @@ Notes:
 
 ## Limits and known issues
 
-- The login token from Claude Code expires after a few hours. Claude Code renews it when you use it. If you haven't opened Claude Code in a while, the panel shows "token expired" and keeps the last numbers until you open Claude Code again.
+- If the automatic renewal fails (for example, the computer was offline, or Claude Code's login itself has expired), the panel shows a message and keeps the last numbers. Opening Claude Code on the computer fixes it.
 - The key in the URL is a simple guard against other people on the same Wi-Fi. Anyone who has the link can see your usage numbers (only the numbers, not your login).
 - The page is a home-screen web app, not a native widget. It refreshes when you open it.
 
@@ -95,5 +97,7 @@ Notes:
 | `port` | Server port, default 8790 |
 | `key` | The key in the URL. Delete it and restart to make a new one |
 | `extraConfigDirs` | Extra Claude Code config folders to look for logins in (optional) |
+| `autoRefresh` | `false` turns off the automatic login renewal (default on) |
+| `claudePath` | Full path to the `claude` program, if it isn't on PATH (optional) |
 
 Environment variables `PORT` and `USAGE_KEY` override these.
