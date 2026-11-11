@@ -182,7 +182,7 @@ function setWindow(prefix, w) {
 
 function render(d) {
   if (!d) return;
-  $("plan").textContent = (d.plan || "----").toUpperCase();
+  $("plan").textContent = [(d.plan || "----").toUpperCase(), d.account && d.account !== "me" ? d.account.toUpperCase() : ""].filter(Boolean).join(" · ");
   setWindow("s", d.fiveHour);
   setWindow("w", d.sevenDay);
 

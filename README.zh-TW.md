@@ -67,6 +67,33 @@
 
 APK 是 GitHub Actions 用 [`widgets/android`](widgets/android) 裡的程式碼編出來的。每次編譯都會用新的測試用簽章，所以要更新到新版時，得先把舊版解除安裝。
 
+## 分享給朋友用（多帳號）
+
+如果朋友沒有一台能一直開著的電腦，可以借用你的。每個朋友會有自己的連結，而且只看得到自己的用量。
+
+新增朋友（在你的電腦上、專案資料夾裡執行）：
+
+```
+node server.mjs add-account alice
+```
+
+這會在獨立的資料夾（`accounts/alice`）裡執行 `claude auth login`，讓朋友登入**他自己的** Claude 帳號，跟著畫面上的指示做就好。如果在你的電腦上打開了瀏覽器，朋友可以在那裡登入，最好用無痕視窗，他的 claude.ai 登入才不會留在你的瀏覽器裡。完成後指令會印出朋友專屬的連結，只傳給他本人。伺服器正在跑的話會自己讀到新帳號，不用重開；`/pair` 頁面也會列出每個人的 QR code。
+
+其他指令：
+
+```
+node server.mjs list-accounts           # 列出所有人的連結
+node server.mjs remove-account alice    # 把他登出，並從這台電腦刪掉他的登入資料
+```
+
+開始之前，你們兩個都要知道：
+
+- 朋友的 Claude 登入資料會存在你的電腦上（`accounts/<名字>/.credentials.json`）。能控制你電腦的人，就能用他的 Claude 帳號。只跟信得過你的人這樣做。
+- 不要直接從朋友的電腦複製登入檔過來，一定要用 `add-account` 重新登入。登入檔裡的更新憑證只能用一次，兩台電腦共用同一份登入會一直互相把對方登出。
+- 自動更新登入（見「運作方式」）會用朋友的帳號執行，所以會用掉一點點**他的**額度。
+- 朋友也要連得到你的電腦：同一個 Wi-Fi，或用 Tailscale。Tailscale 可以只把這一台電腦分享給他。
+- TODAY 那一格只有你自己看得到。朋友沒有在你的電腦上用 Claude Code，所以沒有他的本機紀錄。
+
 ## 開機自動啟動
 
 ```
@@ -136,6 +163,7 @@ powershell -ExecutionPolicy Bypass -File install-autostart.ps1
 | `key` | 網址裡的金鑰。刪掉後重啟就會產生新的 |
 | `extraConfigDirs` | 額外要找登入資料的 Claude Code 設定資料夾（選填） |
 | `autoRefresh` | 設成 `false` 就關掉自動更新登入（預設開啟） |
+| `accounts` | 用 `add-account` 加入的朋友（名字、金鑰、登入資料夾）。請用指令管理，不要手動改 |
 | `claudePath` | `claude` 程式的完整路徑，PATH 裡找不到時才需要（選填） |
 
 環境變數 `PORT` 和 `USAGE_KEY` 可以覆蓋上面的設定。

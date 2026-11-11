@@ -67,6 +67,33 @@ The widget refreshes about every 30 minutes (the shortest Android allows by defa
 
 The APK is built by GitHub Actions from the code in [`widgets/android`](widgets/android). Each build is signed with a new debug key, so to update to a newer version you have to uninstall the old one first.
 
+## Sharing with friends (multiple accounts)
+
+If a friend doesn't have a computer that stays on, they can use yours. Each friend gets their own link and only sees their own usage.
+
+Add a friend (run this on your computer, in the project folder):
+
+```
+node server.mjs add-account alice
+```
+
+This runs `claude auth login` in a separate folder (`accounts/alice`), so your friend logs in to **their own** Claude account. Follow the prompts. If a browser opens on your computer, your friend can sign in there, ideally in a private window so their claude.ai login doesn't stay in your browser. When it's done, the command prints your friend's link. Send it to them only. If the server is already running it picks up the new account by itself, and `/pair` shows a QR code for each person.
+
+Other commands:
+
+```
+node server.mjs list-accounts           # show everyone's links
+node server.mjs remove-account alice    # log them out and delete their login from this computer
+```
+
+Before you do this, both of you should know:
+
+- Your friend's Claude login is stored on your computer (`accounts/<name>/.credentials.json`). Whoever controls your computer can use their Claude account. Only do this with people who trust you.
+- Don't copy the login file from your friend's computer instead of logging in. The renewal code in it can only be used once, so two computers sharing one login will keep logging each other out. Always log in fresh with `add-account`.
+- The automatic login renewal (see "How it works") runs on your friend's account, so it uses a tiny bit of **their** usage.
+- Your friend needs to reach your computer too: same Wi-Fi, or Tailscale. In Tailscale you can share just this one computer with them.
+- The TODAY card only shows up for you. Your friend doesn't use Claude Code on your computer, so there are no local logs for them.
+
 ## Start it automatically
 
 ```
@@ -136,6 +163,7 @@ I've only tested this with the home Wi-Fi setup above. These are other common wa
 | `key` | The key in the URL. Delete it and restart to make a new one |
 | `extraConfigDirs` | Extra Claude Code config folders to look for logins in (optional) |
 | `autoRefresh` | `false` turns off the automatic login renewal (default on) |
+| `accounts` | Friends added with `add-account` (name, key, login folder). Use the commands instead of editing by hand |
 | `claudePath` | Full path to the `claude` program, if it isn't on PATH (optional) |
 
 Environment variables `PORT` and `USAGE_KEY` override these.
