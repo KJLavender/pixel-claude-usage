@@ -38,6 +38,35 @@
 
 第一次啟動時，Windows 可能會問要不要讓 Node.js 通過防火牆。選允許「私人網路」，不然手機連不進來。
 
+## 手機桌面小工具
+
+除了網頁，也可以在手機主畫面放一個小工具（像有些 App 的載具條碼小工具那樣），不用打開任何東西就能看到 5 小時和每週用量。點一下會打開完整面板。
+
+兩種版本都要用到面板網址，也就是 QR code 打開的那個連結，例如 `http://192.168.0.16:8790/?k=<你的金鑰>`。`/pair` 頁面上每個 QR code 下面都有寫。
+
+小工具只有在手機連得到電腦時才會更新（同一個 Wi-Fi，或開著 Tailscale）。連不到時會保留上次的數字並顯示提示。重置時間一到，就算還沒抓到新資料也會直接顯示 0%。
+
+### iPhone（Scriptable）
+
+1. 到 App Store 安裝 [Scriptable](https://apps.apple.com/app/scriptable/id1405459188)（免費）。
+2. 在 Scriptable 裡按 **+** 新增腳本，把 [`widgets/ios/ClaudeUsage.js`](widgets/ios/ClaudeUsage.js) 的內容整個貼上。
+3. 把最上面的 `PANEL_URL` 改成你的面板網址。也可以不改，第 5 步改在小工具的 **Parameter** 欄位貼上網址。
+4. 按 ▶ 試跑，應該會跳出小工具的預覽畫面。
+5. 在主畫面長按 → 左上 **+** → 找 Scriptable → 選中型（或小型）→ 加入。再長按小工具 → **編輯小工具** → **Script** 選這個腳本。
+
+小工具多久更新一次是 iOS 決定的，通常 15 到 30 分鐘一次，打開面板也不會讓它馬上更新。
+
+### Android
+
+1. 用手機打開 [Releases 頁面](https://github.com/KJLavender/pixel-claude-usage/releases)，下載最新版裡的 `ClaudeUsageWidget.apk`。
+2. 點下載好的檔案安裝。Android 會問要不要允許瀏覽器或檔案管理員安裝 App，這是不從 Play 商店安裝時的正常提示。
+3. 在主畫面長按 → **小工具** → 找 **Claude Usage** → 拖到主畫面上。
+4. 會跳出設定畫面，貼上面板網址，按 **儲存**。
+
+小工具大約每 30 分鐘自動更新一次（這是 Android 預設允許的最短間隔）。點小工具上的 ↻ 可以馬上更新。之後要改網址，打開 Claude Usage 這個 App 就可以改。
+
+APK 是 GitHub Actions 用 [`widgets/android`](widgets/android) 裡的程式碼編出來的。每次編譯都會用新的測試用簽章，所以要更新到新版時，得先把舊版解除安裝。
+
 ## 開機自動啟動
 
 ```
@@ -95,7 +124,7 @@ powershell -ExecutionPolicy Bypass -File install-autostart.ps1
 
 - 如果自動更新失敗（例如電腦沒網路，或 Claude Code 本身的登入已經失效），面板會顯示提示，並保留上一次的數字。在電腦上開一次 Claude Code 就會恢復。
 - 網址裡的金鑰只是簡單擋一下同一個 Wi-Fi 的其他人。拿到連結的人看得到你的用量數字（只有數字，看不到登入資料）。
-- 這是加到主畫面的網頁 App，不是原生的桌面小工具，打開時才會更新。
+- 網頁本身只有打開時才會更新。想不打開就看到數字，請用上面的手機桌面小工具。
 
 ## 設定
 

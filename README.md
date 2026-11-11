@@ -38,6 +38,35 @@ What it shows:
 
 The first time the server starts, Windows may ask whether to let Node.js through the firewall. Allow it on private networks, or the phone can't connect.
 
+## Home screen widget
+
+Besides the page, you can put a small widget on your phone's home screen (like the barcode widgets some apps have). It shows the 5-hour and weekly usage without opening anything. Tap it to open the full panel.
+
+Both versions need the panel address, which is the link the QR code opens, for example `http://192.168.0.16:8790/?k=<your key>`. The `/pair` page shows it under each QR code.
+
+The widget only updates when the phone can reach the computer (same Wi-Fi, or Tailscale on). Otherwise it keeps showing the last numbers with a warning. Once a reset time passes, it shows 0% even before it gets new data.
+
+### iPhone (Scriptable)
+
+1. Install [Scriptable](https://apps.apple.com/app/scriptable/id1405459188) from the App Store (free).
+2. In Scriptable, tap **+** to make a new script, and paste in the contents of [`widgets/ios/ClaudeUsage.js`](widgets/ios/ClaudeUsage.js).
+3. Change `PANEL_URL` at the top to your panel address. You can also skip this and paste the address into the widget's **Parameter** field in step 5.
+4. Tap ▶ to try it. A preview of the widget should appear.
+5. On the home screen, long-press → **+** → Scriptable → pick the medium (or small) size → add it. Long-press the widget → **Edit Widget** → set **Script** to this script.
+
+iOS decides when widgets refresh, usually every 15 to 30 minutes. Opening the panel doesn't force it.
+
+### Android
+
+1. On your phone, open the [Releases page](https://github.com/KJLavender/pixel-claude-usage/releases) and download `ClaudeUsageWidget.apk` from the latest release.
+2. Open the file to install it. Android will ask you to allow installing apps from your browser or file manager. This is normal for apps that don't come from the Play Store.
+3. On the home screen, long-press → **Widgets** → **Claude Usage** → drag it onto the screen.
+4. A setup screen opens. Paste your panel address and tap **儲存** (Save).
+
+The widget refreshes about every 30 minutes (the shortest Android allows by default). Tap ↻ on the widget to refresh right away. To change the address later, open the Claude Usage app.
+
+The APK is built by GitHub Actions from the code in [`widgets/android`](widgets/android). Each build is signed with a new debug key, so to update to a newer version you have to uninstall the old one first.
+
 ## Start it automatically
 
 ```
@@ -95,7 +124,7 @@ I've only tested this with the home Wi-Fi setup above. These are other common wa
 
 - If the automatic renewal fails (for example, the computer was offline, or Claude Code's login itself has expired), the panel shows a message and keeps the last numbers. Opening Claude Code on the computer fixes it.
 - The key in the URL is a simple guard against other people on the same Wi-Fi. Anyone who has the link can see your usage numbers (only the numbers, not your login).
-- The page is a home-screen web app, not a native widget. It refreshes when you open it.
+- The page itself refreshes only while it is open. For numbers you can see without opening anything, use the home screen widget above.
 
 ## Settings
 
