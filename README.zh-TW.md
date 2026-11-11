@@ -49,8 +49,9 @@
 ### iPhone（Scriptable）
 
 1. 到 App Store 安裝 [Scriptable](https://apps.apple.com/app/scriptable/id1405459188)（免費）。
-2. 在 Scriptable 裡按 **+** 新增腳本，把 [`widgets/ios/ClaudeUsage.js`](widgets/ios/ClaudeUsage.js) 的內容整個貼上。
-3. 把最上面的 `PANEL_URL` 改成你的面板網址。也可以不改，第 5 步改在小工具的 **Parameter** 欄位貼上網址。
+2. 在 iPhone 的 Safari 打開你的面板網址，但把 `/?k=` 改成 `/widget.js?k=`，例如 `http://192.168.0.16:8790/widget.js?k=<你的金鑰>`。畫面會顯示已經填好你網址的小工具腳本。
+3. 全選、拷貝，到 Scriptable 按 **+** 新增腳本，貼上。
+   （也可以從 GitHub 複製 [`widgets/ios/ClaudeUsage.js`](widgets/ios/ClaudeUsage.js)，再自己改最上面的 `PANEL_URL`。）
 4. 按 ▶ 試跑，應該會跳出小工具的預覽畫面。
 5. 在主畫面長按 → 左上 **+** → 找 Scriptable → 選中型（或小型）→ 加入。再長按小工具 → **編輯小工具** → **Script** 選這個腳本。
 

@@ -49,8 +49,9 @@ The widget only updates when the phone can reach the computer (same Wi-Fi, or Ta
 ### iPhone (Scriptable)
 
 1. Install [Scriptable](https://apps.apple.com/app/scriptable/id1405459188) from the App Store (free).
-2. In Scriptable, tap **+** to make a new script, and paste in the contents of [`widgets/ios/ClaudeUsage.js`](widgets/ios/ClaudeUsage.js).
-3. Change `PANEL_URL` at the top to your panel address. You can also skip this and paste the address into the widget's **Parameter** field in step 5.
+2. On the iPhone, open your panel address in Safari, but change `/?k=` to `/widget.js?k=`. For example `http://192.168.0.16:8790/widget.js?k=<your key>`. This shows the widget script with your address already filled in.
+3. Select all the text and copy it. In Scriptable, tap **+** to make a new script and paste it in.
+   (You can also copy [`widgets/ios/ClaudeUsage.js`](widgets/ios/ClaudeUsage.js) from GitHub and change `PANEL_URL` at the top yourself.)
 4. Tap ▶ to try it. A preview of the widget should appear.
 5. On the home screen, long-press → **+** → Scriptable → pick the medium (or small) size → add it. Long-press the widget → **Edit Widget** → set **Script** to this script.
 

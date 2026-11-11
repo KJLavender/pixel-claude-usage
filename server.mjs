@@ -291,6 +291,17 @@ const server = http.createServer(async (req, res) => {
   const setCookie = account && url.searchParams.get("k") === account.key
     ? { "Set-Cookie": `k=${account.key}; Max-Age=31536000; Path=/; SameSite=Lax; HttpOnly` } : {};
 
+  // iPhone widget script with this person's panel address already filled in,
+  // so it can be copied straight into Scriptable.
+  if (url.pathname === "/widget.js") {
+    let js;
+    try { js = fs.readFileSync(path.join(ROOT, "widgets", "ios", "ClaudeUsage.js"), "utf8"); }
+    catch { res.writeHead(404); return res.end("not found"); }
+    js = js.replace(/^const PANEL_URL = .*$/m, `const PANEL_URL = "http://${req.headers.host}/?k=${account.key}";`);
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+    return res.end(js);
+  }
+
   if (url.pathname === "/api/usage") {
     const c = await fetchUsage(account, url.searchParams.get("force") === "1");
     let local = null;
