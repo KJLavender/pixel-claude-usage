@@ -82,6 +82,15 @@ powershell -ExecutionPolicy Bypass -File install-autostart.ps1
 - 手機第一次透過 Tailscale 連進來時，Windows 防火牆可能會再問一次。Windows 有時會把 Tailscale 的網路當成「公用網路」，那邊也要允許，不然手機連不進來。
 - 不要在路由器上把 8790 這個 port 開到公開網路。網址裡的金鑰只是簡單擋一下，擋不住認真想進來的人。
 
+### 其他方法
+
+我只測過上面「在家用 Wi-Fi」的設定。下面是其他常見的做法，還沒有拿這個專案實際試過：
+
+- **ZeroTier**（https://www.zerotier.com/）：用法跟 Tailscale 差不多。兩邊都裝、加入同一個網路，再用電腦的 ZeroTier IP 連。設定比 Tailscale 麻煩一點。
+- **Cloudflare Tunnel**（`cloudflared`）：不用開 port 就能拿到一個公開的 https 網址，手機也不用裝任何 App。缺點是拿到連結的人都看得到你的用量數字，所以連結不要外流。執行 `cloudflared tunnel --url http://localhost:8790` 會拿到一個臨時網址，每次重開都會變；要固定網址的話，需要 Cloudflare 帳號和自己的網域。
+- **路由器開 port（port forwarding）**：不建議。網頁會直接暴露在網路上，網址裡的金鑰只是簡單擋一下。
+- **Radmin VPN**：只有 Windows 版，沒有手機 App，所以不能用在這裡。
+
 ## 限制和已知問題
 
 - 如果自動更新失敗（例如電腦沒網路，或 Claude Code 本身的登入已經失效），面板會顯示提示，並保留上一次的數字。在電腦上開一次 Claude Code 就會恢復。

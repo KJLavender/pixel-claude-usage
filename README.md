@@ -82,6 +82,15 @@ Notes:
 - The first time the phone connects over Tailscale, Windows Firewall may ask again. Windows sometimes treats the Tailscale network as "public", so allow it there too, or the phone can't connect.
 - Don't forward port 8790 on your router to the open internet. The key in the URL is only a light guard and won't stop someone who is really trying.
 
+### Other options
+
+I've only tested this with the home Wi-Fi setup above. These are other common ways to do it, and I haven't tried them with this project:
+
+- **ZeroTier** (https://www.zerotier.com/): works like Tailscale. Install it on both devices, join the same network, and use the computer's ZeroTier IP. A bit more setup than Tailscale.
+- **Cloudflare Tunnel** (`cloudflared`): gives you a public https address without opening any ports, and doesn't need an app on the phone. The catch is that anyone who has the link can see your usage numbers, so keep the link to yourself. Running `cloudflared tunnel --url http://localhost:8790` gives you a temporary address that changes every time it restarts. A fixed address needs a Cloudflare account and your own domain.
+- **Router port forwarding**: not recommended. It puts the page straight onto the internet, and the key in the URL is only a light guard.
+- **Radmin VPN**: it only runs on Windows and has no phone app, so it doesn't work for this.
+
 ## Limits and known issues
 
 - If the automatic renewal fails (for example, the computer was offline, or Claude Code's login itself has expired), the panel shows a message and keeps the last numbers. Opening Claude Code on the computer fixes it.
