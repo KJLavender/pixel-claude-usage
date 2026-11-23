@@ -67,7 +67,7 @@ public class ConfigActivity extends Activity {
                 return;
             }
             prefs.edit().putString(UsageWidget.KEY_URL, value).apply();
-            UsageWidget.refreshAll(this, null);
+            UpdateJob.schedule(this);
             if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                 setResult(RESULT_OK, new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId));
             } else {

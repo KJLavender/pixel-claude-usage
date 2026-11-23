@@ -29,7 +29,15 @@ jobs:
           gradle-version: "8.10.2"
 
       - name: Build APK
-        run: gradle assembleDebug --no-daemon
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/widget.jks"
+            export KEYSTORE_PATH="$RUNNER_TEMP/widget.jks"
+          fi
+          gradle assembleDebug --no-daemon
 
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk ClaudeUsageWidget.apk

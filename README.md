@@ -66,7 +66,9 @@ iOS decides when widgets refresh, usually every 15 to 30 minutes. Opening the pa
 
 The widget refreshes about every 30 minutes (the shortest Android allows by default). Tap ↻ on the widget to refresh right away. To change the address later, open the Claude Usage app.
 
-The APK is built by GitHub Actions from the code in [`widgets/android`](widgets/android). Each build is signed with a new debug key, so to update to a newer version you have to uninstall the old one first.
+The APK is built by GitHub Actions from the code in [`widgets/android`](widgets/android). From v0.3.0 on, every release is signed with the same key, so a new version installs over the old one. If you have v0.2.0, uninstall it once before installing v0.3.0 or later.
+
+If the phone can't reach the computer, the widget keeps the last numbers and shows how old they are (for example `⚠ 連不到電腦 · 資料 14:05`). It waits for a network and retries a few times, which helps when Tailscale is asleep on the phone.
 
 ## Sharing with friends (multiple accounts)
 

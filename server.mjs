@@ -163,10 +163,30 @@ async function fetchUsage(account, force = false) {
     if (r.status === 401) { st.tokenRejected = true; st.lastRefreshAttempt = 0; } // revoked early: renew next round
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const raw = await r.json();
-    st.cache = { data: shapeUsage(raw, tok), fetchedAt: Date.now(), error: null };
+    st.cache = { data: shapeUsage(raw, tok), fetchedAt: Date.now(), dataAt: Date.now(), error: null };
   } catch (e) {
     fail(`讀取失敗 / Fetch failed: ${e.message}`);
   }
+  return st.cache;
+}
+
+// Answer requests right away from the cache and update in the background, so a phone
+// never waits on Anthropic or on a token renewal (which can take a minute). Only when
+// there is nothing cached yet, or the page asks to force a refresh, do we wait (capped).
+function updateInBackground(account, force = false) {
+  const st = stateOf(account);
+  if (!st.inflight) {
+    st.inflight = fetchUsage(account, force).finally(() => { st.inflight = null; });
+  }
+  return st.inflight;
+}
+
+async function usageForRequest(account, force) {
+  const st = stateOf(account);
+  const pending = updateInBackground(account, force);
+  if (st.cache.data && !force) return st.cache;
+  const cap = new Promise((r) => setTimeout(r, 8_000));
+  await Promise.race([pending, cap]);
   return st.cache;
 }
 
@@ -303,11 +323,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === "/api/usage") {
-    const c = await fetchUsage(account, url.searchParams.get("force") === "1");
+    const c = await usageForRequest(account, url.searchParams.get("force") === "1");
     let local = null;
     try { local = localStats(account); } catch {}
     res.writeHead(200, { "Content-Type": TYPES[".json"], "Cache-Control": "no-store", ...setCookie });
-    return res.end(JSON.stringify({ ...c.data, account: account.name, local, fetchedAt: c.fetchedAt, error: c.error }));
+    return res.end(JSON.stringify({ ...c.data, account: account.name, local, fetchedAt: c.dataAt || c.fetchedAt, error: c.error }));
   }
 
   const file = path.normalize(path.join(PUBLIC, url.pathname === "/" ? "index.html" : url.pathname));
@@ -340,7 +360,7 @@ function startServer() {
       fetchUsage(a, true).then((c) => console.log(`  [${a.name}] ${c.error ? "! " + c.error : "usage API OK"}`));
     }
     // keep tokens fresh and numbers warm even when no phone is looking
-    setInterval(() => { for (const a of accounts()) fetchUsage(a).catch(() => {}); }, 5 * 60_000);
+    setInterval(() => { for (const a of accounts()) updateInBackground(a).catch(() => {}); }, 5 * 60_000);
   });
 }
 

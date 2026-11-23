@@ -23,20 +23,28 @@ function parsePanel(raw) {
 }
 
 async function getData(cfg) {
-  try {
-    const req = new Request(`${cfg.base}/api/usage?k=${encodeURIComponent(cfg.key)}`);
-    req.timeoutInterval = 10;
-    const d = await req.loadJSON();
-    if (d.fiveHour || d.sevenDay) {
-      fm.writeString(cachePath, JSON.stringify(d));
-      return { d, stale: false, error: d.error };
-    }
-    throw new Error(d.error || "no data");
-  } catch (e) {
-    const old = fm.fileExists(cachePath) ? JSON.parse(fm.readString(cachePath)) : null;
-    return { d: old, stale: true, error: "連不到電腦" };
+  // Two tries: the first request often only wakes up a sleeping VPN (Tailscale).
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      if (attempt) await new Promise((r) => Timer.schedule(3000, false, r));
+      const req = new Request(`${cfg.base}/api/usage?k=${encodeURIComponent(cfg.key)}`);
+      req.timeoutInterval = 12;
+      const d = await req.loadJSON();
+      if (d.fiveHour || d.sevenDay) {
+        fm.writeString(cachePath, JSON.stringify(d));
+        return { d, stale: false, error: d.error };
+      }
+      return { d: readCache(), stale: true, error: d.error || "沒有資料" };
+    } catch (e) {}
   }
+  return { d: readCache(), stale: true, error: "連不到電腦" };
 }
+
+function readCache() {
+  try { return fm.fileExists(cachePath) ? JSON.parse(fm.readString(cachePath)) : null; } catch { return null; }
+}
+
+const hhmm = (t) => (t ? new Date(t).toTimeString().slice(0, 5) : "");
 
 // Once the reset time passes the window is back to 0%, even with old data.
 const isReset = (w) => w && w.resetsAt && new Date(w.resetsAt) <= new Date();
@@ -127,7 +135,8 @@ async function build() {
   w.addSpacer();
 
   const foot = w.addText(
-    stale || error ? `⚠ ${error || "資料可能過時"}` : `更新 ${new Date().toTimeString().slice(0, 5)}`
+    (stale || error ? `⚠ ${error || "資料可能過時"}` : "") +
+      (d && d.fetchedAt ? `${stale || error ? " · " : ""}資料 ${hhmm(d.fetchedAt)}` : "")
   );
   foot.font = Font.mediumMonospacedSystemFont(8);
   foot.textColor = stale || error ? C.warn : C.dim;

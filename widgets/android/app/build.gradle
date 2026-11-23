@@ -10,8 +10,21 @@ android {
         applicationId 'io.github.kjlavender.claudeusage'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '0.1.0'
+        versionCode 2
+        versionName '0.3.0'
+    }
+
+    // CI signs with one fixed key (from repo secrets), so a new version installs over the
+    // old one. Local builds without the key fall back to the normal debug key.
+    signingConfigs {
+        debug {
+            if (System.getenv('KEYSTORE_PATH')) {
+                storeFile file(System.getenv('KEYSTORE_PATH'))
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias 'widget'
+                keyPassword System.getenv('KEYSTORE_PASSWORD')
+            }
+        }
     }
 
     compileOptions {

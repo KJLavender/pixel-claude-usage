@@ -45,46 +45,21 @@ public class UsageWidget extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
-        refreshAll(context, goAsync());
+        draw(context, context.getSharedPreferences(PREFS, Context.MODE_PRIVATE), null);
+        UpdateJob.schedule(context);
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
-        if (ACTION_REFRESH.equals(intent.getAction())) refreshAll(context, goAsync());
-    }
-
-    /** Fetch on a background thread, then redraw every instance of the widget. */
-    static void refreshAll(Context context, PendingResult pending) {
-        Context app = context.getApplicationContext();
-        new Thread(() -> {
-            try {
-                SharedPreferences prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-                String panel = prefs.getString(KEY_URL, "");
-                String error = null;
-                if (panel.isEmpty()) {
-                    error = "請打開 App 設定面板網址";
-                } else {
-                    try {
-                        String body = fetch(apiUrl(panel));
-                        JSONObject j = new JSONObject(body);
-                        if (j.has("fiveHour") || j.has("sevenDay")) {
-                            prefs.edit().putString(KEY_CACHE, body)
-                                    .putLong(KEY_CACHE_AT, System.currentTimeMillis()).apply();
-                        }
-                        if (!j.isNull("error")) error = j.optString("error");
-                    } catch (Exception e) {
-                        error = "連不到電腦（顯示上次的資料）";
-                    }
-                }
-                draw(app, prefs, error);
-            } finally {
-                if (pending != null) pending.finish();
-            }
-        }).start();
+        if (ACTION_REFRESH.equals(intent.getAction())) UpdateJob.schedule(context);
     }
 
     static void draw(Context context, SharedPreferences prefs, String error) {
+        draw(context, prefs, error, false);
+    }
+
+    static void draw(Context context, SharedPreferences prefs, String error, boolean updating) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, UsageWidget.class));
         RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget);
@@ -98,11 +73,15 @@ public class UsageWidget extends AppWidgetProvider {
             fillWindow(v, d.optJSONObject("sevenDay"), R.id.w_pct, R.id.w_bar, R.id.w_reset);
         }
 
+        // Always say how old the numbers are, so a failed update still shows useful data.
         long at = prefs.getLong(KEY_CACHE_AT, 0);
-        String status = error != null ? "⚠ " + error
-                : at > 0 ? "更新 " + new SimpleDateFormat("HH:mm", Locale.ROOT).format(new Date(at)) : "";
+        String when = at > 0 ? "資料 " + new SimpleDateFormat("HH:mm", Locale.ROOT).format(new Date(at)) : "";
+        String status;
+        if (updating) status = "更新中…" + (when.isEmpty() ? "" : " · " + when);
+        else if (error != null) status = "⚠ " + error + (when.isEmpty() ? "" : " · " + when);
+        else status = when;
         v.setTextViewText(R.id.status, status);
-        v.setTextColor(R.id.status, error != null ? WARN : DIM);
+        v.setTextColor(R.id.status, error != null && !updating ? WARN : DIM);
 
         // tap ↻ to refresh, tap anywhere else to open the full panel
         Intent refresh = new Intent(context, UsageWidget.class).setAction(ACTION_REFRESH);
@@ -171,7 +150,7 @@ public class UsageWidget extends AppWidgetProvider {
 
     static String fetch(String url) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
-        c.setConnectTimeout(8000);
+        c.setConnectTimeout(10000);
         c.setReadTimeout(15000);
         try {
             if (c.getResponseCode() != 200) throw new Exception("HTTP " + c.getResponseCode());
